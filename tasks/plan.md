@@ -54,4 +54,5 @@
 - [x] Integrate the pinned BSD-licensed Kitsuri UnpairCore replacement for arm64 with required notices, without modifying the installed Minecraft APK.
 - [x] Update dependency planning and diagnostics so the replacement is explicit, loaded before the engine, and cannot silently fall back to the original runtime.
 - [x] Run seven standalone planner tests and six source guardrails.
-- [ ] Assemble with CI, inspect APK contents, and provide the experimental artifact; device compatibility is unknown.
+- [x] Android CI run 45829963581 built the APK and verified the replacement exports and license notices (artifact 15121687350).
+- [ ] Test Minecraft 1.26.66.1 on the phone; compatibility is unknown.
