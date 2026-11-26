@@ -27,6 +27,15 @@ class InProcessLaunchTest(unittest.TestCase):
         self.assertIn('GameHost.reportFailure(failure)', activity)
         self.assertNotIn('GameHost.onGameStopped()', activity.split('if (failure != null)', 1)[1].split('gameReady = true', 1)[0])
 
+    def test_game_component_is_resolved_late_and_start_failure_caught(self):
+        host = (JAVA / 'game/GameHost.kt').read_text()
+        open_game = host.split('    private fun openGame(', 1)[1].split('    fun prepareGameEnvironment', 1)[0]
+        self.assertNotIn('GameActivity::class', host)
+        self.assertIn('setClassName(context, "dev.empyreal.client.game.GameActivity")', open_game)
+        self.assertLess(open_game.index('runCatching {'), open_game.index('setClassName('))
+        self.assertLess(open_game.index('runCatching {'), open_game.index('context.startActivity('))
+        self.assertIn('reportFailure(error)', open_game)
+
     def test_home_does_not_claim_external_launch(self):
         home = (JAVA / 'ui/screens/HomeScreen.kt').read_text()
         self.assertNotIn('Opened the installed Minecraft instead', home)

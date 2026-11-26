@@ -56,3 +56,8 @@
 - [x] Run seven standalone planner tests and six source guardrails.
 - [x] Android CI run 45829963581 built the APK and verified the replacement exports and license notices (artifact 15121687350).
 - [ ] Test Minecraft 1.26.66.1 on the phone; compatibility is unknown.
+
+# Java class-resolution launch failure
+- [x] Correlate the 19:04:16 crash with the successful native load and `NoClassDefFoundError` for Minecraft's MainActivity.
+- [x] Remove the early `GameActivity` class literal from GameHost and put intent creation/start in the existing error handler; source regression test fails before and passes after.
+- [ ] Verify Android CI and, only with user consent, validate on-device; ART resolution timing is a hypothesis, not a proven root cause.

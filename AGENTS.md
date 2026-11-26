@@ -8,3 +8,4 @@
 - For native crashes, inspect the crashing thread backtrace; a signal code or another thread’s frames do not establish the cause.
 - Android 12+ native exit traces are protobuf; do not interpret them as UTF-8. Use clearly labeled, app-matched crash-buffer frames when available.
 - Native tombstone mapping diagnostics must remain bounded, PID-matched and omit memory bytes, addresses and mapping paths; missing mappings do not prove the cause of a crash.
+- Avoid statically resolving GameActivity from the early-loaded GameHost before game DEX is attached; report synchronous launch failures inside Empyreal.

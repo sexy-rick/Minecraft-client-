@@ -255,15 +255,19 @@ object GameHost {
     }.getOrDefault(0L)
 
     private fun openGame(context: Context) {
-        val intent = Intent(context, GameActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        AppLog.i(TAG, "starting GameActivity in this process")
-        runCatching { context.startActivity(intent) }
-            .onFailure { error ->
-                Log.e(TAG, "could not open the in-process game", error)
-                AppLog.e(TAG, "could not open the in-process game", error)
-                reportFailure(error)
-            }
+        // Resolve the activity only after the game's DEX has been attached. A class literal
+        // here can be resolved while GameHost itself is verified during app startup.
+        runCatching {
+            val intent = Intent()
+                .setClassName(context, "dev.empyreal.client.game.GameActivity")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+            AppLog.i(TAG, "starting GameActivity in this process")
+            context.startActivity(intent)
+        }.onFailure { error ->
+            Log.e(TAG, "could not open the in-process game", error)
+            AppLog.e(TAG, "could not open the in-process game", error)
+            reportFailure(error)
+        }
     }
 
     fun prepareGameEnvironment(context: Context) {
