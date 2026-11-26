@@ -30,7 +30,7 @@ object GameHost {
     private const val TAG = "EmpyrealGame"
     const val GAME_PACKAGE = "com.mojang.minecraftpe"
     private const val GAME_ACTIVITY = "com.mojang.minecraftpe.MainActivity"
-    private const val CACHE_SCHEMA = "v2-sanitized"
+    private const val CACHE_SCHEMA = "v3-pairip-verified"
 
     enum class Phase { Idle, Preparing, Ready, Failed }
 
@@ -734,6 +734,11 @@ object GameHost {
                             AppLog.i(
                                 TAG,
                                 "sanitized $file (removed ${sanitized.removedNeeded.joinToString()})",
+                            )
+                        }
+                        if (ElfImageSanitizer.hasBlockedNeeded(tmp)) {
+                            throw IllegalStateException(
+                                "Pairip dependencies remain in $file after ELF sanitization",
                             )
                         }
                         tmp.setReadable(true, true)

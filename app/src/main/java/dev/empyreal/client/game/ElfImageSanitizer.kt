@@ -84,15 +84,19 @@ internal object ElfImageSanitizer {
         val kept = ArrayList<ByteArray>()
         val removed = ArrayList<String>()
         val remaining = ArrayList<String>()
+        var foundNull = false
 
         var at = 0
         while (at + stride <= parsed.dynamicSize) {
             val tag = readTag(buf, at, parsed.is64)
             val value = readVal(buf, at, parsed.is64)
-            if (tag == DT_NULL) break
-
             val entry = parsed.dynamicBytes.copyOfRange(at, at + stride)
             at += stride
+            if (tag == DT_NULL) {
+                kept.add(entry)
+                foundNull = true
+                break
+            }
 
             if (tag == DT_NEEDED) {
                 val soname = elfString(parsed.strings, value)
@@ -109,6 +113,10 @@ internal object ElfImageSanitizer {
             return SanitizeResult(modified = false, removedNeeded = emptyList(), remainingNeeded = remaining)
         }
 
+        if (!foundNull) {
+            val nullEntry = ByteArray(stride)
+            kept.add(nullEntry)
+        }
         val rewritten = ByteArray(parsed.dynamicSize)
         var out = 0
         for (entry in kept) {
