@@ -41,5 +41,13 @@ class InProcessLaunchTest(unittest.TestCase):
         self.assertNotIn('Opened the installed Minecraft instead', home)
         self.assertIn('Could not start Minecraft inside Empyreal', home)
 
+class NativeSearchPathGuardrailTest(unittest.TestCase):
+    def test_cache_priority_and_resolution_diagnostics_are_wired_in(self):
+        host = (JAVA / 'game/GameHost.kt').read_text()
+        self.assertIn('prioritizeExtractedNativePath(pathList)', host)
+        self.assertIn('systemNativeLibraryDirectories', host)
+        self.assertIn('findLibrary(name)', host)
+        self.assertIn('listOf("c++_shared", "minecraftpe", "pairipcore")', host)
+
 if __name__ == '__main__':
     unittest.main()

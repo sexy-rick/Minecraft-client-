@@ -62,3 +62,11 @@
 - [x] Remove the early `GameActivity` class literal from GameHost and put intent creation/start in the existing error handler; source regression test fails before and passes after.
 - [x] Android CI run 45832402663 passed tests, build and APK verification (artifact 15123570217).
 - [ ] With user consent, validate on-device; ART resolution timing is a hypothesis, not a proven root cause.
+
+# Native library lookup failure (19:23:31)
+- [x] Distinguish successful earlier loads from later name-based load and inaccessible linker namespace.
+- [x] Examine Android-derived DexPathList and Runtime semantics; identify appended path order as a hypothesis, not a confirmed cause.
+- [x] Prioritize extracted cache before system paths without overriding host libraries; log name-based resolutions before activity.
+- [x] Run four standalone Kotlin ordering tests and eight Python guardrails.
+- [ ] With push authorization, run Android CI and provide the resulting APK if successful.
+- [ ] Test on the phone; establish actual lookup and namespace behavior.

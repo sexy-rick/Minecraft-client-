@@ -261,6 +261,14 @@ object GameHost {
             val intent = Intent()
                 .setClassName(context, "dev.empyreal.client.game.GameActivity")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+            // Log name-based lookups after extraction and before the asynchronous activity launch.
+            appClassLoader?.let { loader ->
+                listOf("c++_shared", "minecraftpe", "pairipcore").forEach { name ->
+                    runCatching { loader.findLibrary(name) }
+                        .onSuccess { AppLog.i(TAG, "before activity findLibrary($name) → $it") }
+                        .onFailure { AppLog.w(TAG, "before activity findLibrary($name) failed: ${it.message}") }
+                }
+            }
             AppLog.i(TAG, "starting GameActivity in this process")
             context.startActivity(intent)
         }.onFailure { error ->
@@ -491,10 +499,47 @@ object GameHost {
             return
         }
         runCatching { add.invoke(pathList, paths) }
-            .onSuccess { AppLog.i(TAG, "native search path added: ${paths.size} entries") }
+            .onSuccess {
+                AppLog.i(TAG, "native search path added: ${paths.size} entries")
+                runCatching { prioritizeExtractedNativePath(pathList) }
+                    .onFailure { error -> AppLog.w(TAG, "could not prioritize game library cache: ${error.message}") }
+            }
             .onFailure { error ->
                 AppLog.w(TAG, "addNativePath failed (${error.message}); libraries will be loaded by absolute path")
             }
+    }
+
+    // addNativePath appends after the system paths on some ART versions. Preserve the host's
+    // own libraries (including the experimental provider) ahead of the extracted game directory.
+    @Suppress("UNCHECKED_CAST")
+    private fun prioritizeExtractedNativePath(pathList: Any) {
+        val cache = extractedLibDir ?: return
+        val elements = field(pathList, "nativeLibraryPathElements") as Array<Any>
+        val systemDirs = (field(pathList, "systemNativeLibraryDirectories") as List<File>).toSet()
+        val hostPaths = (field(pathList, "nativeLibraryDirectories") as List<File>)
+            .map { File(it.path.substringBefore("!/")) }.toSet()
+        fun elementPath(element: Any): File = field(element, "path") as File
+        val cacheIndex = elements.indexOfFirst { elementPath(it) == cache }
+        val systemIndex = elements.indexOfFirst { elementPath(it) in systemDirs }
+        if (cacheIndex >= 0 && systemIndex >= 0 && cacheIndex > systemIndex) {
+            check((systemIndex until cacheIndex).none { elementPath(elements[it]) in hostPaths }) {
+                "host library paths do not precede system paths; leaving native search order unchanged"
+            }
+        }
+        val reordered = NativePathOrder.prioritizeCache(
+            elements.toList(),
+            isCache = { elementPath(it) == cache },
+            isSystem = { elementPath(it) in systemDirs },
+        )
+        check(reordered.any { elementPath(it) == cache }) { "game library cache was not added to the class loader" }
+        if (reordered != elements.toList()) {
+            val replacement = java.lang.reflect.Array.newInstance(elements.javaClass.componentType, elements.size) as Array<Any>
+            reordered.forEachIndexed { index, element -> replacement[index] = element }
+            declaredField(pathList.javaClass, "nativeLibraryPathElements").set(pathList, replacement)
+            AppLog.i(TAG, "game library cache moved before system native paths; host paths retain priority")
+        } else {
+            AppLog.i(TAG, "game library cache order unchanged")
+        }
     }
 
     private fun method(type: Class<*>, name: String, vararg params: Class<*>): java.lang.reflect.Method? =
