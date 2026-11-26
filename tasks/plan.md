@@ -18,4 +18,4 @@
 
 # GitHub Actions build
 - [x] Add a branch-scoped Android CI workflow with JVM unit tests and a debug APK artifact.
-- [ ] Push the current branch and inspect the Actions result and artifact.
+- [x] Push the current branch and inspect the Actions result and artifact.
