@@ -22,14 +22,32 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
       - name: Install Android SDK components
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'cmake;3.22.1' 'ndk;27.0.12077973'
+        shell: bash
+        run: |
+          set +e
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'cmake;3.22.1' 'ndk;27.0.12077973' 2>&1 | tee "$RUNNER_TEMP/sdk-setup.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            detail=$(grep -Eim 5 'error|failed|exception' "$RUNNER_TEMP/sdk-setup.log" || tail -n 5 "$RUNNER_TEMP/sdk-setup.log")
+            detail=${detail//'%'/'%25'}; detail=${detail//$'\n'/'%0A'}; detail=${detail//$'\r'/'%0D'}
+            echo "::error title=Android SDK setup failed::$detail"
+            exit "$status"
+          fi
       - name: Run launch guardrails
         run: python3 -m unittest discover -s tests -v
       - name: Run unit tests and build debug APK
-        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
+        shell: bash
+        run: |
+          set +e
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            detail=$(grep -Eim 15 '(^e: |error:|^\* What went wrong:|^> |^FAILURE:)' "$RUNNER_TEMP/gradle-build.log" || tail -n 15 "$RUNNER_TEMP/gradle-build.log")
+            detail=${detail//'%'/'%25'}; detail=${detail//$'\n'/'%0A'}; detail=${detail//$'\r'/'%0D'}
+            echo "::error title=Android build failed::$detail"
+            exit "$status"
+          fi
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
