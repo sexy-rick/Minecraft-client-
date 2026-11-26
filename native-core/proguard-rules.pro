@@ -1,0 +1,2 @@
+-keep class dev.empyreal.core.** { *; }
+-dontwarn de.robv.android.xposed.**

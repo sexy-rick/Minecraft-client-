@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Empyreal</string>
+    <string name="home">Home</string>
+    <string name="modules">Modules</string>
+    <string name="hud">HUD</string>
+    <string name="configs">Configs</string>
+    <string name="settings">Settings</string>
+</resources>
