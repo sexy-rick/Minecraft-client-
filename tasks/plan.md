@@ -68,5 +68,5 @@
 - [x] Examine Android-derived DexPathList and Runtime semantics; identify appended path order as a hypothesis, not a confirmed cause.
 - [x] Prioritize extracted cache before system paths without overriding host libraries; log name-based resolutions before activity.
 - [x] Run four standalone Kotlin ordering tests and eight Python guardrails.
-- [ ] With push authorization, run Android CI and provide the resulting APK if successful.
+- [x] Android CI run 45834729230 passed unit tests, build and APK verification; artifact 15124706711 expires 2026-12-10.
 - [ ] Test on the phone; establish actual lookup and namespace behavior.
