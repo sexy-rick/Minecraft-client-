@@ -40,6 +40,9 @@ object LastSession {
                     appendLine("--- trace ---")
                     appendLine(trace.trimEnd().take(60_000))
                 }
+                if (record.reason == ApplicationExitInfo.REASON_CRASH_NATIVE && android.os.Build.VERSION.SDK_INT >= 31) {
+                    appendLine("Native tombstone is binary; see the captured crash-buffer backtrace when available.")
+                }
             }
         }
         File(dir, EXIT_FILE).writeText(text)
@@ -94,12 +97,20 @@ object LastSession {
             appendLine("time: ${format(record.timestamp)}")
             appendLine("reason: ${ExitReason.reasonText(record.reason)}")
             appendLine("detail: ${ExitReason.describe(record)}")
-            record.trace?.let { trace ->
-                appendLine()
-                trace.lineSequence()
-                    .filter { it.contains("signal ") || it.trim().startsWith("#0") || it.contains("Cmdline") }
-                    .take(12)
-                    .forEach { appendLine(it.trim()) }
+            if (record.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+                val crashBuffer = runCatching { readCrashBuffer(context) }.getOrNull()
+                NativeCrashSummary.extract(crashBuffer, context.packageName)?.let { summary ->
+                    appendLine("\nRecent crash buffer (may be unrelated to this exit):")
+                    appendLine(summary)
+                }
+            } else {
+                record.trace?.let { trace ->
+                    appendLine()
+                    trace.lineSequence()
+                        .filter { it.contains("signal ") || it.trim().startsWith("#0") || it.contains("Cmdline") }
+                        .take(12)
+                        .forEach { appendLine(it.trim()) }
+                }
             }
         }.trim()
     }

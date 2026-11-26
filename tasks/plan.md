@@ -25,3 +25,12 @@
 - [x] Test and bind the installed base APK to the existing protection runtime before engine load, without modifying protection code.
 - [x] Verify unit tests and Android CI.
 - [ ] Obtain a fresh device report for runtime confirmation.
+
+# Native SIGSEGV after APK binding
+- [x] Identify the precise failure stage from the device report.
+- [ ] Obtain the crashing thread backtrace from the crash buffer before choosing a fix.
+
+# Native crash diagnostics
+- [x] Use the shared crash buffer to identify the crashing frame without guessing a native cause.
+- [x] Stop rendering Android 12+ binary tombstones as text; summarize matching app backtraces from logcat.
+- [ ] Obtain symbolicated frames or inspect the exact installed native library before changing native loading.

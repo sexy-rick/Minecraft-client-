@@ -33,9 +33,12 @@ object ExitReason {
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun toRecord(info: ApplicationExitInfo): Record {
-        val trace = runCatching {
-            info.traceInputStream?.bufferedReader()?.use { it.readText() }
-        }.getOrNull()
+        // Android 12+ native tombstones are protobuf, not text. Do not render binary bytes as UTF-8.
+        val trace = if (info.reason == ApplicationExitInfo.REASON_CRASH_NATIVE && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            null
+        } else {
+            runCatching { info.traceInputStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
+        }
         return Record(
             timestamp = info.timestamp,
             reason = info.reason,

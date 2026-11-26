@@ -31,6 +31,9 @@ internal object DiagnosticReportCollector {
             entries = AppLog.snapshot(),
             lastExit = runCatching { LastSession.readExit(app) }.getOrNull(),
             javaCrash = runCatching { CrashLog.read(app) }.getOrNull(),
+            nativeCrash = runCatching {
+                NativeCrashSummary.extract(LastSession.readCrashBuffer(app), app.packageName)
+            }.getOrNull(),
         )
     }
 }

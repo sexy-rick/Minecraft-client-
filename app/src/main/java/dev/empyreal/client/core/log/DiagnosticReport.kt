@@ -10,7 +10,13 @@ internal object DiagnosticReport {
     private val timestamp = Regex("^\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s")
     private val relevant = Regex("^\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+[VDIWEF]/Empyreal(?:Game|Core|Exit|Crash)?:")
 
-    fun build(environment: String, entries: List<String>, lastExit: String?, javaCrash: String?): String {
+    fun build(
+        environment: String,
+        entries: List<String>,
+        lastExit: String?,
+        javaCrash: String?,
+        nativeCrash: String? = null,
+    ): String {
         val events = ArrayDeque<String>()
         var current: StringBuilder? = null
         var eventTruncated = false
@@ -61,6 +67,8 @@ internal object DiagnosticReport {
             appendLine(if (eventText.isBlank()) "(not available)" else tail(eventText, MAX_EVENTS_CHARS))
             appendLine("\n=== Android previous process exit (may be unavailable or unrelated) ===")
             appendLine(head(lastExit, MAX_EXIT_CHARS))
+            appendLine("\n=== Recent matching native crash buffer (may be unrelated to the exit above) ===")
+            appendLine(head(nativeCrash, MAX_CRASH_CHARS))
             appendLine("\n=== Last recorded Java crash (may be older) ===")
             appendLine(head(javaCrash, MAX_CRASH_CHARS))
         }
