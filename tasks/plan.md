@@ -39,4 +39,5 @@
 # Faulting memory mapping diagnostics
 - [x] Inspect the public AOSP tombstone schema and add a bounded, PID-matched fault-mapping summary without raw memory, addresses or paths.
 - [x] Exercise tagged ARM64 addresses, mapping permissions, gaps, PID mismatch and malformed/oversized input in JVM tests.
-- [ ] Build with Android CI and verify the summary against the phone's actual tombstone; unavailable or omitted mappings remain possible.
+- [x] Build with Android CI (run 45814436643).
+- [ ] Verify the summary against the phone's actual tombstone; unavailable or omitted mappings remain possible.
