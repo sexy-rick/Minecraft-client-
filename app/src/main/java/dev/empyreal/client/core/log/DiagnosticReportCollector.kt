@@ -16,6 +16,7 @@ internal object DiagnosticReportCollector {
             val appVersion = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull()
             appendLine("Empyreal: ${app.packageName} ${appVersion ?: "unknown version"}")
             appendLine("Loader cache schema: ${GameHost.CACHE_SCHEMA}")
+            appendLine("PairIP runtime: experimental Kitsuri replacement; original integrity checks are not run")
             appendLine("Minecraft package: ${MinecraftLauncher.installedPackage(app) ?: "not installed"}")
             appendLine("Minecraft version: ${MinecraftLauncher.versionName(app) ?: "unknown"}")
             appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")

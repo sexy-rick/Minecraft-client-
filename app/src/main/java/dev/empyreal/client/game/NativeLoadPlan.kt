@@ -27,7 +27,14 @@ internal object NativeLoadPlan {
         val preFailed: Map<String, String>,
     )
 
+    const val REPLACEMENT_PROVIDER = "libpairipcore.so"
+
     val BUNDLED_SPECS: Map<String, BundledSpec> = mapOf(
+        REPLACEMENT_PROVIDER to BundledSpec(
+            fileName = REPLACEMENT_PROVIDER,
+            shortName = "pairipcore",
+            dependencies = emptyList(),
+        ),
         "libmaesdk.so" to BundledSpec(
             fileName = "libmaesdk.so",
             shortName = "maesdk",
@@ -64,7 +71,7 @@ internal object NativeLoadPlan {
     ): Plan {
         val activePool = LinkedHashSet(discoveredNames)
         elfNeeded["libminecraftpe.so"].orEmpty()
-            .filter { it in bundledAvailable }
+            .filter { it in BUNDLED_SPECS }
             .forEach { activePool += it }
 
         val deferred = activePool.filter { it in DEFERRED_TO_GAME }
@@ -112,6 +119,10 @@ internal object NativeLoadPlan {
         for (name in ordered) {
             if (name in killed) {
                 preFailed[name] = "previous native load marker remains; cause unknown"
+                continue
+            }
+            if (name == REPLACEMENT_PROVIDER && name !in bundledAvailable) {
+                preFailed[name] = "experimental PairIP replacement is unavailable for this ABI"
                 continue
             }
             val bundled = BUNDLED_SPECS[name]?.takeIf { name in bundledAvailable }

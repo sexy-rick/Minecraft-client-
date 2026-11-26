@@ -30,7 +30,7 @@ object GameHost {
     private const val TAG = "EmpyrealGame"
     const val GAME_PACKAGE = "com.mojang.minecraftpe"
     private const val GAME_ACTIVITY = "com.mojang.minecraftpe.MainActivity"
-    internal const val CACHE_SCHEMA = "v4-original-libraries"
+    internal const val CACHE_SCHEMA = "v5-kitsuri-experimental"
 
     enum class Phase { Idle, Preparing, Ready, Failed }
 
@@ -591,12 +591,15 @@ object GameHost {
         val info = context.packageManager.getApplicationInfo(packageName, 0)
         val abi = currentProcessAbi()
         val bundledAvailable = bundledSdkLibraries(context, abi)
+        check(NativeLoadPlan.REPLACEMENT_PROVIDER in bundledAvailable) {
+            "experimental PairIP replacement is unavailable for ABI $abi"
+        }
         val libDir = File(context.codeCacheDir, "game-libs").apply { mkdirs() }
         pruneCacheOverrides(libDir, bundledAvailable)
 
         val extractedPaths = LinkedHashMap<String, String?>()
         for (name in nativeLibNames) {
-            if (name in bundledAvailable) continue
+            if (name in bundledAvailable || name == NativeLoadPlan.REPLACEMENT_PROVIDER) continue
             extractedPaths[name] = loadablePath(context, info, abi, name)
         }
 
@@ -613,6 +616,11 @@ object GameHost {
         }
         dependencyResults.forEach { (name, needed) ->
             AppLog.i(TAG, "native dependencies $name: ${needed?.joinToString(" ")?.ifEmpty { "none" } ?: "unavailable"}")
+        }
+        val engineDependencies = dependencyResults["libminecraftpe.so"]
+            ?: throw IllegalStateException("could not read the Minecraft engine's native dependencies")
+        check(NativeLoadPlan.REPLACEMENT_PROVIDER in engineDependencies) {
+            "this experimental build only supports engines declaring the PairIP dependency"
         }
         val elfNeeded = dependencyResults.mapValues { (_, needed) -> needed.orEmpty() }
 
@@ -660,17 +668,8 @@ object GameHost {
                     continue
                 }
                 try {
-                    if (step.name == "libminecraftpe.so" && "libpairipcore.so" in step.dependencies) {
-                        runCatching { marker.writeText("libpairipcore.so") }
-                            .onFailure { AppLog.w(TAG, "could not record native setup marker: ${it.message}") }
-                        AppLog.i(TAG, "binding game bytecode loader to the installed Minecraft base APK")
-                        try {
-                            val runtime = Class.forName("com.pairip.VMRunner", false, appClassLoader)
-                            PairipApkBinding.bind(runtime, File(info.sourceDir))
-                        } catch (error: Exception) {
-                            throw IllegalStateException("could not configure the game bytecode loader: ${error.message}", error)
-                        }
-                        AppLog.i(TAG, "game bytecode loader bound to installed Minecraft base APK")
+                    if (step.name == NativeLoadPlan.REPLACEMENT_PROVIDER) {
+                        AppLog.w(TAG, "EXPERIMENTAL: loading Kitsuri replacement for PairIP; original integrity execution is not performed")
                     }
                     runCatching { marker.writeText(step.name) }
                         .onFailure { AppLog.w(TAG, "could not record native load marker for ${step.name}: ${it.message}") }

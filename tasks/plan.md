@@ -41,3 +41,17 @@
 - [x] Exercise tagged ARM64 addresses, mapping permissions, gaps, PID mismatch and malformed/oversized input in JVM tests.
 - [x] Build with Android CI (run 45814436643).
 - [ ] Verify the summary against the phone's actual tombstone; unavailable or omitted mappings remain possible.
+- [x] Obtain actual phone report: PID-matched fault is in an anonymous no-access mapping.
+- [x] Confirm the user can launch unmodified Minecraft independently as a diagnostic control.
+- [ ] Determine the origin/bounds of the data being read in the hosted process.
+
+# Kitsuri source comparison
+- [x] Inspect Kitsuri-Studios/Minimal-Launcher at 35d73b606bd3491fe6243a4dcb3f5587baa85f71, including its pinned unpaircore gitlink.
+- [x] Distinguish its in-process loader from its replacement PairIP implementation; neither a fix preserving the original library nor compatibility with 1.26.66.1 is demonstrated.
+- [ ] Continue investigating host/runtime differences without bypassing integrity code or copying GPL source into this project.
+
+# Experimental Kitsuri-based in-process build (explicit user choice)
+- [x] Integrate the pinned BSD-licensed Kitsuri UnpairCore replacement for arm64 with required notices, without modifying the installed Minecraft APK.
+- [x] Update dependency planning and diagnostics so the replacement is explicit, loaded before the engine, and cannot silently fall back to the original runtime.
+- [x] Run seven standalone planner tests and six source guardrails.
+- [ ] Assemble with CI, inspect APK contents, and provide the experimental artifact; device compatibility is unknown.

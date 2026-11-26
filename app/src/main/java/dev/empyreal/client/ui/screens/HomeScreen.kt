@@ -190,7 +190,7 @@ fun HomeScreen(
                         )
                         Spacer(Modifier.height(spacing.xs))
                         Text(
-                            text = "Send this report to the developers — it says exactly where things went wrong.",
+                            text = "Send this report to the developers to help investigate the crash.",
                             style = MaterialTheme.typography.labelMedium,
                             color = colors.onSurfaceVariant,
                         )
@@ -243,6 +243,12 @@ fun HomeScreen(
                     }
 
                     Spacer(Modifier.height(spacing.md))
+                    Text(
+                        text = "Experimental: replaces PairIP integrity checks. Upstream hooks may alter game or telemetry behavior.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.error,
+                    )
+                    Spacer(Modifier.height(spacing.sm))
 
                     Button(
                         onClick = {
