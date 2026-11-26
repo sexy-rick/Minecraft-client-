@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import dev.empyreal.client.core.log.AppLog
+import dev.empyreal.client.core.log.DiagnosticReportCollector
 import dev.empyreal.client.core.log.ExitReason
 import dev.empyreal.client.core.log.LastSession
 import dev.empyreal.client.ui.components.ExpressiveCard
@@ -373,6 +374,23 @@ fun LogScreen(onBack: () -> Unit) {
                         textStyle = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(Modifier.height(spacing.xs))
+                    Text(
+                        text = "After a crash, reopen the app and wait a moment before copying. The diagnostic includes device details, paths and crash messages; review it before sharing.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                    TextButton(onClick = {
+                        runCatching {
+                            clipboard.setText(AnnotatedString(DiagnosticReportCollector.collect(context)))
+                        }.onFailure { error ->
+                            AppLog.e("EmpyrealLog", "could not copy diagnostic report", error)
+                            android.widget.Toast.makeText(context, "Could not copy diagnostic. See the live log.", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }) {
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(spacing.xs))
+                        Text("Copy diagnostic")
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         TextButton(onClick = {
                             runCatching {

@@ -299,7 +299,7 @@ fun HomeScreen(
                     Text(
                         text = when {
                             preparing -> launch.message ?: "Loading the game's libraries…"
-                            activeHostError != null -> "Opened the installed Minecraft instead: $activeHostError"
+                            activeHostError != null -> "Could not start Minecraft inside Empyreal: $activeHostError"
                             else -> "Minecraft opens right here — your HUD and modules come with it."
                         },
                         style = MaterialTheme.typography.labelMedium,

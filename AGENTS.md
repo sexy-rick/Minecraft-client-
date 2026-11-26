@@ -1,0 +1,6 @@
+# Project notes
+- Preserve installed Minecraft native libraries and their declared dependencies; do not patch out integrity libraries or fake their exports.
+- In-process hosting is device- and version-dependent; report verification limits honestly.
+- Do not push or change branches unless requested.
+- Launch and content-import failures must remain in Empyreal and report their cause; never silently start the external Minecraft app.
+- Diagnostic reports must distinguish unknown causes from evidence and warn before sharing device details, paths, or crash messages.

@@ -5,7 +5,7 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-internal object ElfImageSanitizer {
+internal object ElfDependencies {
 
     private const val MAX_ELF_TABLE_BYTES = 16L * 1024L * 1024L
     private const val ELF_MAGIC_BE = 0x7F454C46
@@ -20,108 +20,34 @@ internal object ElfImageSanitizer {
     private const val DT_STRTAB = 5L
     private const val DT_STRSZ = 10L
 
-    data class SanitizeResult(
-        val modified: Boolean,
-        val removedNeeded: List<String>,
-        val remainingNeeded: List<String>,
-    )
-
     private class ParsedDynamic(
         val is64: Boolean,
         val byteOrder: ByteOrder,
-        val dynamicOffset: Long,
         val dynamicSize: Int,
         val dynamicBytes: ByteArray,
         val strings: ByteArray,
     )
 
-    fun isPairipLibrary(name: String): Boolean {
-        val base = name.substringAfterLast('/')
-        return base == "libpairipcore.so" || (base.startsWith("libpairip") && base.endsWith(".so"))
-    }
-
     fun readNeededLibraries(path: File): List<String> {
-        if (!path.isFile) return emptyList()
-        return runCatching {
-            RandomAccessFile(path, "r").use { raf ->
-                val parsed = parseDynamic(raf) ?: return emptyList()
-                val stride = if (parsed.is64) 16 else 8
-                val buf = ByteBuffer.wrap(parsed.dynamicBytes).order(parsed.byteOrder)
-                val result = ArrayList<String>()
-                var at = 0
-                while (at + stride <= parsed.dynamicSize) {
-                    val tag = readTag(buf, at, parsed.is64)
-                    val value = readVal(buf, at, parsed.is64)
-                    at += stride
-                    if (tag == DT_NULL) break
-                    if (tag == DT_NEEDED) {
-                        val name = elfString(parsed.strings, value)
-                        if (name.isNotEmpty()) result.add(name)
-                    }
+        require(path.isFile) { "native library is not a readable file" }
+        return RandomAccessFile(path, "r").use { raf ->
+            val parsed = parseDynamic(raf) ?: throw IllegalArgumentException("invalid or unsupported ELF dynamic table")
+            val stride = if (parsed.is64) 16 else 8
+            val buf = ByteBuffer.wrap(parsed.dynamicBytes).order(parsed.byteOrder)
+            val result = ArrayList<String>()
+            var at = 0
+            while (at + stride <= parsed.dynamicSize) {
+                val tag = readTag(buf, at, parsed.is64)
+                val value = readVal(buf, at, parsed.is64)
+                at += stride
+                if (tag == DT_NULL) break
+                if (tag == DT_NEEDED) {
+                    val name = elfString(parsed.strings, value)
+                    if (name.isNotEmpty()) result.add(name)
                 }
-                result
             }
-        }.getOrDefault(emptyList())
-    }
-
-    fun hasBlockedNeeded(
-        path: File,
-        blocked: (String) -> Boolean = ::isPairipLibrary,
-    ): Boolean = readNeededLibraries(path).any(blocked)
-
-    fun sanitizeInPlace(
-        path: File,
-        blocked: (String) -> Boolean = ::isPairipLibrary,
-    ): SanitizeResult {
-        if (!path.isFile) return SanitizeResult(false, emptyList(), emptyList())
-
-        val parsed = RandomAccessFile(path, "r").use { parseDynamic(it) }
-            ?: return SanitizeResult(false, emptyList(), emptyList())
-
-        val stride = if (parsed.is64) 16 else 8
-        val buf = ByteBuffer.wrap(parsed.dynamicBytes).order(parsed.byteOrder)
-
-        val kept = ArrayList<ByteArray>()
-        val removed = ArrayList<String>()
-        val remaining = ArrayList<String>()
-
-        var at = 0
-        while (at + stride <= parsed.dynamicSize) {
-            val tag = readTag(buf, at, parsed.is64)
-            val value = readVal(buf, at, parsed.is64)
-            if (tag == DT_NULL) break
-
-            val entry = parsed.dynamicBytes.copyOfRange(at, at + stride)
-            at += stride
-
-            if (tag == DT_NEEDED) {
-                val soname = elfString(parsed.strings, value)
-                if (soname.isNotEmpty() && blocked(soname)) {
-                    removed.add(soname)
-                    continue
-                }
-                if (soname.isNotEmpty()) remaining.add(soname)
-            }
-            kept.add(entry)
+            result
         }
-
-        if (removed.isEmpty()) {
-            return SanitizeResult(modified = false, removedNeeded = emptyList(), remainingNeeded = remaining)
-        }
-
-        val rewritten = ByteArray(parsed.dynamicSize)
-        var out = 0
-        for (entry in kept) {
-            System.arraycopy(entry, 0, rewritten, out, stride)
-            out += stride
-        }
-
-        RandomAccessFile(path, "rw").use { raf ->
-            raf.seek(parsed.dynamicOffset)
-            raf.write(rewritten)
-        }
-
-        return SanitizeResult(modified = true, removedNeeded = removed, remainingNeeded = remaining)
     }
 
     private fun parseDynamic(file: RandomAccessFile): ParsedDynamic? {
@@ -248,7 +174,6 @@ internal object ElfImageSanitizer {
         return ParsedDynamic(
             is64 = is64,
             byteOrder = byteOrder,
-            dynamicOffset = dynamicOffset,
             dynamicSize = dynamicSize.toInt(),
             dynamicBytes = dynamicBytes,
             strings = strings,

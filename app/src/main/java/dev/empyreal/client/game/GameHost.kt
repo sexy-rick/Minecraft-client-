@@ -30,7 +30,7 @@ object GameHost {
     private const val TAG = "EmpyrealGame"
     const val GAME_PACKAGE = "com.mojang.minecraftpe"
     private const val GAME_ACTIVITY = "com.mojang.minecraftpe.MainActivity"
-    private const val CACHE_SCHEMA = "v2-sanitized"
+    internal const val CACHE_SCHEMA = "v4-original-libraries"
 
     enum class Phase { Idle, Preparing, Ready, Failed }
 
@@ -141,6 +141,7 @@ object GameHost {
     fun isGameActive(): Boolean = active
 
     fun onGameStarted() {
+        lastError = null
         active = true
         AppLog.i(TAG, "game activity started — thread ${Thread.currentThread().name}")
         _state.value = LaunchState(Phase.Ready)
@@ -152,6 +153,17 @@ object GameHost {
         AppLog.i(TAG, "game activity stopped")
         _state.value = LaunchState(Phase.Idle)
         GameForeground.set(false)
+    }
+
+    fun reportFailure(message: String) {
+        lastError = message
+        active = false
+        GameForeground.set(false)
+        _state.value = LaunchState(Phase.Failed, message)
+    }
+
+    fun reportFailure(error: Throwable) {
+        reportFailure(error.message ?: error.javaClass.simpleName)
     }
 
     fun launch(context: Context) {
@@ -169,6 +181,7 @@ object GameHost {
                 AppLog.d(TAG, "preparation already in progress; ignoring duplicate tap")
                 return
             }
+            lastError = null
             if (prepared && nativeLoaded && !isPackageStale(app, pkg)) {
                 openGame(app)
                 return
@@ -182,10 +195,9 @@ object GameHost {
             if (ready) {
                 main.post { openGame(app) }
             } else {
-                Log.e(TAG, "in-process host unavailable, opening the installed game")
-                AppLog.e(TAG, "in-process host unavailable; opening the installed game instead")
-                _state.value = LaunchState(Phase.Failed, lastError)
-                main.post { MinecraftLauncher.launch(app) }
+                Log.e(TAG, "in-process host unavailable")
+                AppLog.e(TAG, "in-process host unavailable")
+                reportFailure(lastError ?: "Minecraft could not be prepared in Empyreal")
             }
         }
     }
@@ -248,11 +260,9 @@ object GameHost {
         AppLog.i(TAG, "starting GameActivity in this process")
         runCatching { context.startActivity(intent) }
             .onFailure { error ->
-                lastError = error.message ?: error.javaClass.simpleName
-                Log.e(TAG, "could not open the in-app game, opening the installed game", error)
-                AppLog.e(TAG, "could not open the in-app game; opening the installed game instead", error)
-                _state.value = LaunchState(Phase.Failed, lastError)
-                MinecraftLauncher.launch(context)
+                Log.e(TAG, "could not open the in-process game", error)
+                AppLog.e(TAG, "could not open the in-process game", error)
+                reportFailure(error)
             }
     }
 
@@ -341,14 +351,14 @@ object GameHost {
         val previousStamp = runCatching { stampFile.readText().trim() }.getOrNull()
         if (previousStamp != currentStamp) {
             AppLog.i(TAG, "refreshing game-libs cache ($CACHE_SCHEMA) for updated Minecraft install")
-            libDir.listFiles()?.forEach { f ->
-                runCatching {
-                    f.setWritable(true, true)
-                    f.delete()
-                }
+            val cachedFiles = libDir.listFiles()
+                ?: throw IllegalStateException("could not inspect the game library cache")
+            cachedFiles.forEach { file ->
+                file.setWritable(true, true)
+                check(file.delete() || !file.exists()) { "could not clear cached game library ${file.name}" }
             }
             File(context.codeCacheDir, "loading-library.txt").delete()
-            runCatching { stampFile.writeText(currentStamp) }
+            stampFile.writeText(currentStamp)
         }
         val bundled = bundledSdkLibraries(context, currentProcessAbi())
         pruneCacheOverrides(libDir, bundled)
@@ -566,7 +576,7 @@ object GameHost {
         libDir.listFiles()?.forEach { file ->
             val name = file.name
             val baseName = if (name.endsWith(".crc")) name.removeSuffix(".crc") else name
-            if (ElfImageSanitizer.isPairipLibrary(baseName) || baseName in bundledAvailable) {
+            if (baseName in bundledAvailable) {
                 runCatching {
                     file.setWritable(true, true)
                     file.delete()
@@ -586,7 +596,7 @@ object GameHost {
 
         val extractedPaths = LinkedHashMap<String, String?>()
         for (name in nativeLibNames) {
-            if (ElfImageSanitizer.isPairipLibrary(name) || name in bundledAvailable) continue
+            if (name in bundledAvailable) continue
             extractedPaths[name] = loadablePath(context, info, abi, name)
         }
 
@@ -598,18 +608,25 @@ object GameHost {
                 "${readable.size} extracted (${copiedBytes / 1048576} MB in game-libs)",
         )
 
-        val elfNeeded = extractedPaths.mapValues { (name, path) ->
-            path?.let { readNeededWithLog(name, it) }.orEmpty()
+        val dependencyResults = extractedPaths.mapValues { (name, path) ->
+            path?.let { readNeededWithLog(name, it) }
         }
+        dependencyResults.forEach { (name, needed) ->
+            AppLog.i(TAG, "native dependencies $name: ${needed?.joinToString(" ")?.ifEmpty { "none" } ?: "unavailable"}")
+        }
+        val elfNeeded = dependencyResults.mapValues { (_, needed) -> needed.orEmpty() }
 
         val marker = File(context.codeCacheDir, "loading-library.txt")
         val killed = HashSet<String>()
-        runCatching { marker.readText().trim() }
-            .getOrNull()
+        val previousLoad = runCatching { marker.readText().trim() }.getOrNull()
+        if (!previousLoad.isNullOrEmpty()) {
+            AppLog.w(TAG, "previous native load marker remains for $previousLoad; cause unknown")
+        }
+        previousLoad
             ?.takeIf { it in nativeLibNames && it != "libminecraftpe.so" }
             ?.let { name ->
                 killed += name
-                AppLog.e(TAG, "$name took the process down last time — it will not be loaded again")
+                AppLog.e(TAG, "$name is blocked after an unfinished load; the cause is unknown")
             }
 
         val plan = NativeLoadPlan.plan(
@@ -619,13 +636,14 @@ object GameHost {
             bundledAvailable = bundledAvailable,
             killed = killed,
         )
-        if (plan.skippedWrappers.isNotEmpty()) {
-            AppLog.i(TAG, "skipped integrity wrappers: ${plan.skippedWrappers.joinToString(" ")}")
-        }
         if (plan.deferred.isNotEmpty()) {
             AppLog.i(TAG, "deferred to game runtime: ${plan.deferred.joinToString(" ")}")
         }
         AppLog.i(TAG, "load plan: ${plan.steps.joinToString(" ") { it.name }}")
+        plan.steps.forEach { step ->
+            AppLog.i(TAG, "native plan ${step.name}: method=${step.method} dependencies=${step.dependencies.joinToString(" ").ifEmpty { "none" }}")
+        }
+        plan.preFailed.forEach { (name, reason) -> AppLog.e(TAG, "native plan blocked $name: $reason") }
 
         val failed = LinkedHashMap<String, String>(plan.preFailed)
         var pending = plan.steps
@@ -643,6 +661,8 @@ object GameHost {
                 }
                 try {
                     runCatching { marker.writeText(step.name) }
+                        .onFailure { AppLog.w(TAG, "could not record native load marker for ${step.name}: ${it.message}") }
+                    AppLog.i(TAG, "native load attempt pass=$pass library=${step.name} method=${step.method}")
                     when (step.method) {
                         NativeLoadPlan.LoadMethod.BUNDLED_SYSTEM_LOAD_LIBRARY -> {
                             val shortName = step.systemShortName
@@ -664,7 +684,7 @@ object GameHost {
                 } catch (error: Throwable) {
                     marker.delete()
                     failed[step.name] = error.message ?: error.javaClass.simpleName
-                    AppLog.e(TAG, "${step.name} could not be loaded — ${error.message}")
+                    AppLog.e(TAG, "${step.name} could not be loaded — ${error.message}", error)
                     nextPending += step
                 }
             }
@@ -688,13 +708,12 @@ object GameHost {
         AppLog.i(TAG, "native libraries ready in this process")
     }
 
-    private fun readNeededWithLog(name: String, path: String): List<String> =
-        runCatching { ElfImageSanitizer.readNeededLibraries(File(path)) }
-            .onFailure { AppLog.w(TAG, "headers of $name not read: ${it.message}") }
-            .getOrDefault(emptyList())
+    private fun readNeededWithLog(name: String, path: String): List<String>? =
+        runCatching { ElfDependencies.readNeededLibraries(File(path)) }
+            .onFailure { AppLog.w(TAG, "headers of $name not read: ${it.message}", it) }
+            .getOrNull()
 
     private fun loadablePath(context: Context, info: ApplicationInfo, abi: String, file: String): String? {
-        if (ElfImageSanitizer.isPairipLibrary(file)) return null
         extractLibrary(context, info, abi, file)?.let { return it }
 
         val installed = File(nativeLibDir, file)
@@ -718,8 +737,7 @@ object GameHost {
                     val cacheValid = target.isFile &&
                         target.canRead() &&
                         target.length() == entry.size &&
-                        cachedStamp == expectedStamp &&
-                        !ElfImageSanitizer.hasBlockedNeeded(target)
+                        cachedStamp == expectedStamp
                     if (!cacheValid) {
                         val tmp = File(dir, "$file.tmp")
                         runCatching {
@@ -728,13 +746,6 @@ object GameHost {
                         }
                         zip.getInputStream(entry).use { input ->
                             FileOutputStream(tmp).use { output -> input.copyTo(output) }
-                        }
-                        val sanitized = ElfImageSanitizer.sanitizeInPlace(tmp)
-                        if (sanitized.modified) {
-                            AppLog.i(
-                                TAG,
-                                "sanitized $file (removed ${sanitized.removedNeeded.joinToString()})",
-                            )
                         }
                         tmp.setReadable(true, true)
                         tmp.setWritable(false, false)

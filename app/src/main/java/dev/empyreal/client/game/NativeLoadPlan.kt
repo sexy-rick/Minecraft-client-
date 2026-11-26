@@ -24,7 +24,6 @@ internal object NativeLoadPlan {
     data class Plan(
         val steps: List<LoadStep>,
         val deferred: List<String>,
-        val skippedWrappers: List<String>,
         val preFailed: Map<String, String>,
     )
 
@@ -63,11 +62,9 @@ internal object NativeLoadPlan {
         bundledAvailable: Set<String>,
         killed: Set<String> = emptySet(),
     ): Plan {
-        val skippedWrappers = discoveredNames.filter { ElfImageSanitizer.isPairipLibrary(it) }
-        val activePool = LinkedHashSet<String>()
-        discoveredNames.filterNotTo(activePool) { ElfImageSanitizer.isPairipLibrary(it) }
+        val activePool = LinkedHashSet(discoveredNames)
         elfNeeded["libminecraftpe.so"].orEmpty()
-            .filter { it in bundledAvailable && !ElfImageSanitizer.isPairipLibrary(it) }
+            .filter { it in bundledAvailable }
             .forEach { activePool += it }
 
         val deferred = activePool.filter { it in DEFERRED_TO_GAME }
@@ -82,7 +79,6 @@ internal object NativeLoadPlan {
             effectiveDeps[name] = rawDeps
                 .filter { dep ->
                     dep != name &&
-                        !ElfImageSanitizer.isPairipLibrary(dep) &&
                         dep in activePool
                 }
                 .distinct()
@@ -93,7 +89,7 @@ internal object NativeLoadPlan {
         val visiting = HashSet<String>()
 
         fun visit(name: String, forceInclude: Boolean) {
-            if (name in done || ElfImageSanitizer.isPairipLibrary(name)) return
+            if (name in done) return
             if (!forceInclude && name in DEFERRED_TO_GAME) return
             if (!visiting.add(name)) return
             effectiveDeps[name].orEmpty().forEach { dep ->
@@ -115,7 +111,7 @@ internal object NativeLoadPlan {
 
         for (name in ordered) {
             if (name in killed) {
-                preFailed[name] = "took the process down on the previous launch"
+                preFailed[name] = "previous native load marker remains; cause unknown"
                 continue
             }
             val bundled = BUNDLED_SPECS[name]?.takeIf { name in bundledAvailable }
@@ -144,7 +140,6 @@ internal object NativeLoadPlan {
         return Plan(
             steps = steps,
             deferred = deferred,
-            skippedWrappers = skippedWrappers,
             preFailed = preFailed,
         )
     }

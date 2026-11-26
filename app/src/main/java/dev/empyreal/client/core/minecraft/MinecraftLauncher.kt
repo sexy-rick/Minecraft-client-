@@ -10,7 +10,6 @@ object MinecraftLauncher {
 
     const val PACKAGE = "com.mojang.minecraftpe"
     const val PACKAGE_BETA = "com.mojang.minecraftpe.beta"
-    const val DEEP_LINK = "minecraft://"
 
     fun installedPackage(context: Context): String? {
         val pm = context.packageManager
@@ -47,27 +46,6 @@ object MinecraftLauncher {
     fun installedIcon(context: Context) = runCatching {
         context.packageManager.getApplicationIcon(installedPackage(context) ?: PACKAGE)
     }.getOrNull()
-
-    fun launch(context: Context): Boolean {
-        val pkg = installedPackage(context) ?: return false
-        val intent = context.packageManager.getLaunchIntentForPackage(pkg) ?: return false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        return runCatching {
-            context.startActivity(intent)
-            true
-        }.getOrDefault(false)
-    }
-
-    fun openDeepLink(context: Context, uri: String = DEEP_LINK): Boolean {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            setPackage(installedPackage(context) ?: PACKAGE)
-        }
-        return runCatching {
-            context.startActivity(intent)
-            true
-        }.getOrDefault(false)
-    }
 
     fun openStore(context: Context) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$PACKAGE")).apply {

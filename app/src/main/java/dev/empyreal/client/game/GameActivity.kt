@@ -8,7 +8,6 @@ import android.util.Log
 import android.widget.Toast
 import com.mojang.minecraftpe.MainActivity
 import dev.empyreal.client.core.log.AppLog
-import dev.empyreal.client.core.minecraft.MinecraftLauncher
 import dev.empyreal.client.core.state.GameForeground
 import dev.empyreal.core.hud.HudState
 import dev.empyreal.core.hud.InGameHud
@@ -24,12 +23,12 @@ class GameActivity : MainActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         AppLog.i(TAG, "GameActivity.onCreate — thread ${Thread.currentThread().name}")
         if (!GameHost.ensurePrepared(applicationContext)) {
-            Log.e(TAG, "game host not ready; opening the installed Minecraft instead")
-            AppLog.e(TAG, "game host not ready; opening the installed Minecraft instead")
-            Toast.makeText(this, "Opening the installed Minecraft…", Toast.LENGTH_SHORT).show()
-            fallbackToExternalMinecraft()
-            finish()
+            Log.e(TAG, "game host not ready")
+            AppLog.e(TAG, "game host not ready")
+            GameHost.reportFailure(GameHost.lastError ?: "Minecraft could not be prepared in Empyreal")
+            Toast.makeText(this, "Minecraft could not start inside Empyreal. See the live log.", Toast.LENGTH_LONG).show()
             markCalled()
+            finish()
             return
         }
 
@@ -50,35 +49,16 @@ class GameActivity : MainActivity() {
             error
         }
         if (failure != null) {
-            AppLog.e(TAG, "the game's own onCreate threw — falling back to the installed game", failure)
-            Toast.makeText(this, "Minecraft could not start here — opening the installed game", Toast.LENGTH_LONG).show()
+            AppLog.e(TAG, "the game's own onCreate threw", failure)
+            GameHost.reportFailure(failure)
+            Toast.makeText(this, "Minecraft could not start inside Empyreal. See the live log.", Toast.LENGTH_LONG).show()
             markCalled()
-            GameHost.onGameStopped()
             runCatching { finish() }
-            fallbackToExternalMinecraft()
             return
         }
         gameReady = true
         GameHost.onGameStarted()
         AppLog.i(TAG, "Mojang MainActivity.onCreate returned")
-    }
-
-    private fun fallbackToExternalMinecraft() {
-        val incoming = intent
-        if (incoming?.action == Intent.ACTION_VIEW && incoming.data != null) {
-            val pkg = MinecraftLauncher.installedPackage(this)
-            if (pkg != null) {
-                val forward = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(incoming.data, incoming.type ?: "application/octet-stream")
-                    setPackage(pkg)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                if (runCatching { startActivity(forward); true }.getOrDefault(false)) {
-                    return
-                }
-            }
-        }
-        MinecraftLauncher.launch(this)
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
