@@ -80,5 +80,5 @@
 # Read-only saved-state diagnostic APK (user authorized)
 - [x] Implement bounded DEX inspection of only AndroidX candidate definitions and FragmentActivity.init opcode/register shape; never emit raw DEX or arbitrary string values.
 - [x] Test synthetic literal, null-constant, invalid opcode and malformed DEX cases plus a separate real DEX parser check.
-- [ ] Run Android CI and provide the diagnostic APK.
+- [x] Android CI run 45837099893 passed tests, build and APK verification (artifact 15125747554, expires 2026-12-10).
 - [ ] Inspect phone report, noting candidate definitions and register overlaps are not proof of runtime origin or data flow.
