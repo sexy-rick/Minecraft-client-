@@ -23,4 +23,5 @@
 # Minecraft 1.26.66.1 native abort
 - [x] Identify reported bytecode lookup failure and correlate with the loader's classpath order.
 - [x] Test and bind the installed base APK to the existing protection runtime before engine load, without modifying protection code.
-- [ ] Verify unit tests and Android CI; obtain a fresh device report for runtime confirmation.
+- [x] Verify unit tests and Android CI.
+- [ ] Obtain a fresh device report for runtime confirmation.
