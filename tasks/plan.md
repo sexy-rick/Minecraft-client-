@@ -33,4 +33,10 @@
 # Native crash diagnostics
 - [x] Use the shared crash buffer to identify the crashing frame without guessing a native cause.
 - [x] Stop rendering Android 12+ binary tombstones as text; summarize matching app backtraces from logcat.
-- [ ] Obtain symbolicated frames or inspect the exact installed native library before changing native loading.
+- [x] Inspect the user-provided ARM64 library at the reported crash offset, without modification.
+- [ ] Determine why the faulting read reaches an inaccessible mapping before attempting a native-loading fix.
+
+# Faulting memory mapping diagnostics
+- [x] Inspect the public AOSP tombstone schema and add a bounded, PID-matched fault-mapping summary without raw memory, addresses or paths.
+- [x] Exercise tagged ARM64 addresses, mapping permissions, gaps, PID mismatch and malformed/oversized input in JVM tests.
+- [ ] Build with Android CI and verify the summary against the phone's actual tombstone; unavailable or omitted mappings remain possible.

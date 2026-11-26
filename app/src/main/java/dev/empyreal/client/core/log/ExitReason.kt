@@ -17,28 +17,32 @@ object ExitReason {
         val pss: Long,
         val rss: Long,
         val trace: String?,
+        val nativeMapping: String? = null,
     )
 
-    fun read(context: Context, max: Int = 6): List<Record> {
+    fun read(context: Context, max: Int = 6, includeNativeMapping: Boolean = false): List<Record> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
-        return runCatching { readRecent(context, max) }.getOrDefault(emptyList())
+        return runCatching { readRecent(context, max, includeNativeMapping) }.getOrDefault(emptyList())
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private fun readRecent(context: Context, max: Int): List<Record> {
+    private fun readRecent(context: Context, max: Int, includeNativeMapping: Boolean): List<Record> {
         val am = context.getSystemService(ActivityManager::class.java) ?: return emptyList()
         return am.getHistoricalProcessExitReasons(context.packageName, 0, max)
-            .map { info -> toRecord(info) }
+            .map { info -> toRecord(info, includeNativeMapping) }
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private fun toRecord(info: ApplicationExitInfo): Record {
+    private fun toRecord(info: ApplicationExitInfo, includeNativeMapping: Boolean): Record {
         // Android 12+ native tombstones are protobuf, not text. Do not render binary bytes as UTF-8.
         val trace = if (info.reason == ApplicationExitInfo.REASON_CRASH_NATIVE && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             null
         } else {
             runCatching { info.traceInputStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
         }
+        val nativeMapping = if (includeNativeMapping && info.reason == ApplicationExitInfo.REASON_CRASH_NATIVE && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runCatching { info.traceInputStream?.use { NativeTombstoneMapping.summarize(it, info.pid) } }.getOrNull()
+        } else null
         return Record(
             timestamp = info.timestamp,
             reason = info.reason,
@@ -48,6 +52,7 @@ object ExitReason {
             pss = info.pss,
             rss = info.rss,
             trace = trace,
+            nativeMapping = nativeMapping,
         )
     }
 

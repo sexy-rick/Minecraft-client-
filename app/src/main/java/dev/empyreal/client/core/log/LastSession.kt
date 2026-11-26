@@ -23,7 +23,7 @@ object LastSession {
     }
 
     private fun writeExit(context: Context, dir: File) {
-        val records = ExitReason.read(context)
+        val records = ExitReason.read(context, includeNativeMapping = true)
         cached = records
         if (records.isEmpty()) return
         val text = buildString {
@@ -42,6 +42,7 @@ object LastSession {
                 }
                 if (record.reason == ApplicationExitInfo.REASON_CRASH_NATIVE && android.os.Build.VERSION.SDK_INT >= 31) {
                     appendLine("Native tombstone is binary; see the captured crash-buffer backtrace when available.")
+                    appendLine(record.nativeMapping ?: "Fault mapping: unavailable from native tombstone.")
                 }
             }
         }
@@ -98,6 +99,7 @@ object LastSession {
             appendLine("reason: ${ExitReason.reasonText(record.reason)}")
             appendLine("detail: ${ExitReason.describe(record)}")
             if (record.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+                record.nativeMapping?.let { appendLine(it) }
                 val crashBuffer = runCatching { readCrashBuffer(context) }.getOrNull()
                 NativeCrashSummary.extract(crashBuffer, context.packageName)?.let { summary ->
                     appendLine("\nRecent crash buffer (may be unrelated to this exit):")
