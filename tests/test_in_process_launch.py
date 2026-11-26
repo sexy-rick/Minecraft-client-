@@ -49,5 +49,19 @@ class NativeSearchPathGuardrailTest(unittest.TestCase):
         self.assertIn('findLibrary(name)', host)
         self.assertIn('listOf("c++_shared", "minecraftpe", "pairipcore")', host)
 
+class SavedStateProbeGuardrailTest(unittest.TestCase):
+    def test_probe_is_bounded_read_only_and_runs_before_activity(self):
+        host = (JAVA / 'game/GameHost.kt').read_text()
+        probe = (JAVA / 'game/SavedStateDexProbe.kt').read_text()
+        self.assertIn('runCatching { logSavedStateDexProbe(context, info) }', host)
+        self.assertLess(host.index('runCatching { logSavedStateDexProbe(context, info) }'), host.index('nativeLoaded = true'))
+        self.assertIn('48 * 1024 * 1024', host)
+        self.assertIn('192L * 1024 * 1024', host)
+        self.assertIn('insns <= 4096', probe)
+        self.assertIn('opcodes.size < 128', probe)
+        self.assertNotIn('writeBytes(', probe)
+        self.assertNotIn('writeText(', probe)
+        self.assertIn('registers are not data-flow proof', probe)
+
 if __name__ == '__main__':
     unittest.main()

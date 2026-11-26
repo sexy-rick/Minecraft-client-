@@ -70,3 +70,15 @@
 - [x] Run four standalone Kotlin ordering tests and eight Python guardrails.
 - [x] Android CI run 45834729230 passed unit tests, build and APK verification; artifact 15124706711 expires 2026-12-10.
 - [ ] Test on the phone; establish actual lookup and namespace behavior.
+
+# AndroidX activity constructor failure (19:34:01)
+- [x] Confirm previous native lookup error did not recur, and locate new failure before GameActivity.onCreate.
+- [x] Compare AndroidX source and nearby-version public game smali; both supply a non-null literal, which does not establish the user's installed bytecode.
+- [ ] Determine actual class origins and the installed game's relevant bytecode, without disclosing full proprietary DEX or personal data.
+- [ ] Reproduce and fix the null-key cause before asking for another phone test.
+
+# Read-only saved-state diagnostic APK (user authorized)
+- [x] Implement bounded DEX inspection of only AndroidX candidate definitions and FragmentActivity.init opcode/register shape; never emit raw DEX or arbitrary string values.
+- [x] Test synthetic literal, null-constant, invalid opcode and malformed DEX cases plus a separate real DEX parser check.
+- [ ] Run Android CI and provide the diagnostic APK.
+- [ ] Inspect phone report, noting candidate definitions and register overlaps are not proof of runtime origin or data flow.

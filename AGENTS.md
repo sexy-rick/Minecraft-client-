@@ -10,3 +10,4 @@
 - Native tombstone mapping diagnostics must remain bounded, PID-matched and omit memory bytes, addresses and mapping paths; missing mappings do not prove the cause of a crash.
 - Avoid statically resolving GameActivity from the early-loaded GameHost before game DEX is attached; report synchronous launch failures inside Empyreal.
 - Native search path ordering is only a class-loader lookup change; it does not establish or alter linker namespace accessibility. Preserve Empyreal host-library priority.
+- Saved-state DEX diagnostics are read-only, bounded and report only selected method opcode/register shape and candidate classes; they must not emit raw DEX, arbitrary strings, or claim runtime provenance or data-flow proof.

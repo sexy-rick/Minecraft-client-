@@ -761,11 +761,60 @@ object GameHost {
         if (failed.isNotEmpty()) {
             AppLog.w(TAG, "not loaded, the game may still start: " + failed.keys.joinToString(" "))
         }
+        // This bounded, read-only diagnostic looks only at the relevant AndroidX classes and
+        // one method's opcode shape. It does not upload APKs or emit raw DEX/string contents.
+        runCatching { logSavedStateDexProbe(context, info) }
+            .onFailure { AppLog.w(TAG, "saved-state DEX probe unavailable: ${it.message}") }
         nativeLoaded = true
         if (killed.isEmpty()) {
             marker.delete()
         }
         AppLog.i(TAG, "native libraries ready in this process")
+    }
+
+    private fun logSavedStateDexProbe(context: Context, info: ApplicationInfo) {
+        val maxDexBytes = 48 * 1024 * 1024
+        var totalBytes = 0L
+        val maxTotal = 192L * 1024 * 1024
+        val sources = listOf("host" to context.packageResourcePath) +
+            apks(info).mapIndexed { index, path -> "game-apk-$index" to path }
+        AppLog.i(TAG, "saved-state DEX probe: class definitions are candidates, not proof of the loaded class")
+        sources.take(8).forEach { (label, path) ->
+            runCatching {
+                ZipFile(path).use { zip ->
+                    val entries = java.util.Collections.list(zip.entries())
+                        .filter { Regex("classes(\\\\d*)\\\\.dex").matches(it.name) }
+                        .sortedBy { it.name.removePrefix("classes").removeSuffix(".dex").toIntOrNull() ?: 1 }
+                    entries.take(12).forEach dexEntry@ { entry ->
+                        val size = entry.size
+                        if (size <= 0 || size > maxDexBytes || totalBytes + size > maxTotal) {
+                            AppLog.w(TAG, "saved-state DEX probe skipped $label/${entry.name}: size limit")
+                            return@dexEntry
+                        }
+                        totalBytes += size
+                        try {
+                            val bytes = ByteArray(size.toInt())
+                            zip.getInputStream(entry).use { input ->
+                                var offset = 0
+                                while (offset < bytes.size) {
+                                    val n = input.read(bytes, offset, bytes.size - offset)
+                                    if (n <= 0) throw IllegalStateException("truncated DEX entry")
+                                    offset += n
+                                }
+                            }
+                            val result = SavedStateDexProbe.inspect(bytes)
+                            AppLog.i(TAG, "saved-state DEX candidate $label/${entry.name}: ${result.classes.joinToString().ifEmpty { "none" }}")
+                            result.method?.let { AppLog.i(TAG, "saved-state DEX $label/${entry.name}: $it") }
+                        } catch (error: Exception) {
+                            AppLog.w(TAG, "saved-state DEX probe could not inspect $label/${entry.name}: ${error.message}")
+                        }
+                    }
+                    if (entries.size > 12) AppLog.w(TAG, "saved-state DEX probe omitted extra DEX entries in $label")
+                }
+            }.onFailure { AppLog.w(TAG, "saved-state DEX probe could not open $label: ${it.message}") }
+        }
+        if (sources.size > 8) AppLog.w(TAG, "saved-state DEX probe omitted extra APKs")
+        AppLog.i(TAG, "saved-state DEX probe done; it does not establish which definition ART executed")
     }
 
     private fun readNeededWithLog(name: String, path: String): List<String>? =
