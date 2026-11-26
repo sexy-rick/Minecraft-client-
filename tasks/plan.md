@@ -19,3 +19,8 @@
 # GitHub Actions build
 - [x] Add a branch-scoped Android CI workflow with JVM unit tests and a debug APK artifact.
 - [x] Push the current branch and inspect the Actions result and artifact.
+
+# Minecraft 1.26.66.1 native abort
+- [x] Identify reported bytecode lookup failure and correlate with the loader's classpath order.
+- [x] Test and bind the installed base APK to the existing protection runtime before engine load, without modifying protection code.
+- [ ] Verify unit tests and Android CI; obtain a fresh device report for runtime confirmation.

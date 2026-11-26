@@ -660,6 +660,18 @@ object GameHost {
                     continue
                 }
                 try {
+                    if (step.name == "libminecraftpe.so" && "libpairipcore.so" in step.dependencies) {
+                        runCatching { marker.writeText("libpairipcore.so") }
+                            .onFailure { AppLog.w(TAG, "could not record native setup marker: ${it.message}") }
+                        AppLog.i(TAG, "binding game bytecode loader to the installed Minecraft base APK")
+                        try {
+                            val runtime = Class.forName("com.pairip.VMRunner", false, appClassLoader)
+                            PairipApkBinding.bind(runtime, File(info.sourceDir))
+                        } catch (error: Exception) {
+                            throw IllegalStateException("could not configure the game bytecode loader: ${error.message}", error)
+                        }
+                        AppLog.i(TAG, "game bytecode loader bound to installed Minecraft base APK")
+                    }
                     runCatching { marker.writeText(step.name) }
                         .onFailure { AppLog.w(TAG, "could not record native load marker for ${step.name}: ${it.message}") }
                     AppLog.i(TAG, "native load attempt pass=$pass library=${step.name} method=${step.method}")
