@@ -10,7 +10,7 @@ Replace `GameActivity::class.java` in early-loaded GameHost with an explicit sam
 ## 5. Failed attempts
 Prior original PairIP runtime crashed in a protected anonymous mapping. The experimental replacement progressed past native loading but did not reach the Minecraft activity. Successful Android builds never establish working device launch. Avoid repeating diagnostic-only experiments without evidence.
 ## 6. Specific next steps
-Run Android CI and package verification. Do not characterize this as a proven fix until the user chooses to test it on the device. If it fails, compare classloader timing, cached resolution errors and the manifest-instantiated activity lifecycle; do not assume they are fixed by this change.
+Android CI run 45832402663 passed unit tests, build and APK verification (artifact 15123570217, expires 2026-12-10). Do not characterize this as a proven fix until the user chooses to test it on the device. If it fails, compare classloader timing, cached resolution errors and the manifest-instantiated activity lifecycle; do not assume they are fixed by this change.
 
 ## CI note
 A branch-scoped Actions workflow at `.github/workflows/android.yml` uses the preinstalled runner SDK, installs components, runs guardrails and Android unit tests, builds the debug APK, and uploads it. SDK and Gradle errors are annotated for API access. Run 45797000456 passed on commit 9c60217: guardrails, Android unit tests, and debug APK build succeeded; diagnostic-only artifact 15105481732 was uploaded (expires 2026-12-10). It does not fix the native crash. Device launch still requires separate testing.

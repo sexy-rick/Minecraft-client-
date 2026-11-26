@@ -60,4 +60,5 @@
 # Java class-resolution launch failure
 - [x] Correlate the 19:04:16 crash with the successful native load and `NoClassDefFoundError` for Minecraft's MainActivity.
 - [x] Remove the early `GameActivity` class literal from GameHost and put intent creation/start in the existing error handler; source regression test fails before and passes after.
-- [ ] Verify Android CI and, only with user consent, validate on-device; ART resolution timing is a hypothesis, not a proven root cause.
+- [x] Android CI run 45832402663 passed tests, build and APK verification (artifact 15123570217).
+- [ ] With user consent, validate on-device; ART resolution timing is a hypothesis, not a proven root cause.
